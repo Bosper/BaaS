@@ -6,6 +6,8 @@ var PhotoSchema = new Schema({
     order:  Number,
     active: Boolean,
     url:    String
+}, {
+    collection: 'photos'
 });
 
 module.exports = mongoose.model( 'Photo', PhotoSchema );

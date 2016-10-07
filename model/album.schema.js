@@ -8,6 +8,8 @@ var AlbumSchema = new Schema({
     desc: String,
     order: Boolean,
     cover: Number
+}, {
+    collection: 'albums'
 });
 
 module.exports = mongoose.model( 'Albums', AlbumSchema );
