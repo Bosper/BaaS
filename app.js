@@ -134,13 +134,4 @@ app.get('/adduser', function (req, res) {
     });
 });
 
-
-
-// app.get('/test', function (req, res) {
-//     console.log('Recived GET request!');
-//     res.json({ message: 'Recived GET request!' });
-//
-// })
-
-
 module.exports = app;
