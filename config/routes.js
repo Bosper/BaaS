@@ -1,34 +1,3 @@
-var express     = require('express');
-var app = express();
-
-var cors        = require('cors');
-var morgan      = require('morgan');
-var path        = require('path');
-var bodyParser  = require('body-parser');
-var config      = require('./config/config')
-var jwt         = require('jsonwebtoken');
-
-
-
-// configure app
-app.use(morgan('dev'));
-
-app.use(bodyParser());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-
-app.use(cors());
-
-var mongoose    = require('mongoose');
-// var bcrypt      = require(bcrypt);
-// const SALT_WORK_FACTOR = 10;
-
-var Test        = require('./model/test');
-var User        = require('./model/user.schema');
-
-mongoose.connect('mongodb://localhost:27017/lounge');
-app.set('secret', config.secret);
-
 app.get('/', function(req, res) {
     res.json({ message: 'hooray! welcome to our api!' });
 });
@@ -134,13 +103,4 @@ app.get('/adduser', function (req, res) {
     });
 });
 
-
-
-// app.get('/test', function (req, res) {
-//     console.log('Recived GET request!');
-//     res.json({ message: 'Recived GET request!' });
-//
-// })
-
-
-module.exports = app;
+module.exports = Routes;
