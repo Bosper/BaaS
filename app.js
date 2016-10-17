@@ -1,6 +1,8 @@
 var express     = require('express');
 var app = express();
 
+var session     = require('express-session');
+var cookie      = require('cookie-parser');
 var cors        = require('cors');
 var morgan      = require('morgan');
 var path        = require('path');
@@ -8,7 +10,10 @@ var bodyParser  = require('body-parser');
 var config      = require('./config/config')
 var jwt         = require('jsonwebtoken');
 
-
+var sess = {
+  secret: config.secret,
+  cookie: {}
+}
 
 // configure app
 app.use(morgan('dev'));
@@ -18,6 +23,20 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 app.use(cors());
+
+app.use(session({
+    secret: config.secret,
+    resave: true,
+    saveUninitialized: true
+}));
+
+// Authentication and Authorization Middleware
+var auth = function(req, res, next) {
+  if (req.session && req.session.user === "uland" && req.session.admin)
+    return next();
+  else
+    return res.sendStatus(401);
+};
 
 var mongoose    = require('mongoose');
 // var bcrypt      = require(bcrypt);
@@ -49,24 +68,13 @@ app.get('/test', function(req, res) {
         });
 });
 
-app.get('/login', function (req, res) {
-    User.find(function(err, users) {
-        if (err) {
-            res.send(err);
-        } else {
-            res.header({
-                 'Content-Type': 'application/json',
-                 'Access-Control-Allow-Origin': '*',
-                 'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-                 'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
-            });
-            res.json(users);
-            console.log(users);
-        }
-    });
+// Get content endpoint
+app.get('/connect', auth, function (req, res) {
+    res.json("You can only see this after you've logged in.");
 });
 
 app.post('/login', function (req, res) {
+<<<<<<< Updated upstream
     console.log("Recived login request!");
     console.log("Request: ", req.body, req.body.username);
     res.header({
@@ -115,12 +123,27 @@ app.post('/authenticate', function(req, res) {
   });
 });
 
+app.get('/users', function(req, res) {
+    User.find(function(err, users) {
+        if (err) {
+            res.send(err);
+        } else {
+            res.header({
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
+            });
+            res.json(users);
+            console.log(users);
+        }
+    });
+});
 
 app.get('/adduser', function (req, res) {
 
     var Uland = new User({
         username: 'uland',
-        password: 'password'
+        password: 'anno1602'
     }, {
         _id: false,
         collection: 'users'
@@ -133,5 +156,39 @@ app.get('/adduser', function (req, res) {
         res.json({ success: true })
     });
 });
+
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  var err = new Error('Not Found');
+  err.status = 404;
+  next(err);
+});
+
+// error handlers
+
+// development error handler
+// will print stacktrace
+if (app.get('env') === 'development') {
+  app.use(function(err, req, res, next) {
+    res.status(err.status || 500);
+    res.render('error', {
+      message: err.message,
+      error: err
+    });
+  });
+}
+
+// production error handler
+// no stacktraces leaked to user
+app.use(function(err, req, res, next) {
+  res.status(err.status || 500);
+  app.set('trust proxy', 1); // trust first proxy
+  sess.cookie.secure = true; // serve secure cookies
+  res.render('error', {
+    message: err.message,
+    error: {}
+  });
+});
+
 
 module.exports = app;
