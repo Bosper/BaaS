@@ -1,8 +1,6 @@
 var express     = require('express');
+var app         = express();
 var session     = require('express-session');
-var app = express();
-
-
 var cookie      = require('cookie-parser');
 var cors        = require('cors');
 var morgan      = require('morgan');
@@ -14,7 +12,6 @@ var mongoose    = require('mongoose');
 
 var Test        = require('./model/test');
 var User        = require('./model/user.schema');
-
 var sess = {
     secret: config.secret,
     cookie: {
@@ -22,34 +19,33 @@ var sess = {
         httpOnly: false
     }
 }
-app.use(session(sess))
-// configure app
-app.use(morgan('dev'));
+//CONNECT to DB
+mongoose.connect(config.db);
+mongoose.connection.on('open', function () {
+    console.error('Mongo is open.');
 
+
+});
+
+var apiRoutes = express.Router();
+
+// configure app
+app.set('secret', config.secret);
+app.use(session(sess))
+app.use(morgan('dev'));
 app.use(bodyParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-
 app.use(cookie())
-
 app.use(cors());
-
+app.use('/api/tokenCheck', apiRoutes);
 app.use(function(req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE');
     next();
 });
 
-app.set('secret', config.secret);
-
-if (app.get('env') === 'production') {
-    app.set('trust proxy', 1) // trust first proxy
-    sess.cookie.secure = true // serve secure cookies
-}
-
-
-
-var apiRoutes = express.Router();
+//TOKEN  VERIFY for URL
 apiRoutes.use(function (req, res, next) {
   var token = req.body.token || req.query.token || req.headers['x-access-token'];
   console.log(token);
@@ -65,8 +61,7 @@ apiRoutes.use(function (req, res, next) {
       }
     });
   } else {
-    // if there is no token
-    // return an error
+    // if there is no token return an error
     return res.status(403).send({
         success: false,
         message: 'No token provided.',
@@ -74,37 +69,10 @@ apiRoutes.use(function (req, res, next) {
     });
   }
 });
-
-mongoose.connect('mongodb://localhost:27017/lounge');
-
-
-app.get('/', function(req, res) {
-    res.json({ message: 'hooray! welcome to our api!' });
-});
-
-app.get('/api/test', function(req, res) {
-    Test.find(function(err, data) {
-            if (err) {
-                res.send(err);
-            } else {
-                res.header({
-                     'Content-Type': 'application/json',
-                     'Access-Control-Allow-Origin': '*',
-                     'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-                });
-                res.json(data);
-                console.log(data);
-            }
-        });
-});
-
+//AUTH USER
 app.post('/api/authenticate', function(req, res) {
-
-    if(req.session.lastPage) {
-     res.json({LastPage: req.session.lastPage});
-   }
-  // find the user
   console.log(req.body);
+  sess = req.session;
   User.findOne({
     username: req.body.username
   }, function(err, user) {
@@ -121,24 +89,20 @@ app.post('/api/authenticate', function(req, res) {
         var token = jwt.sign(user, app.get('secret'), {
           expiresIn: 60*2 // expires in 24 hours
         });
-        // save token to userModel
-        // user.token = token;
-        // user.save();
-
-        console.log(user.token);
         // return the information including token as JSON
         res.json({
           success: true,
           message: 'Enjoy your token!',
           token: token
         });
+        sess.token = token;
+        console.log("SESS TOKEN: ", sess.token);
       }
     }
   });
 });
-
+//Add User
 app.get('/api/adduser', function (req, res) {
-
     var Uland = new User({
         username: 'uland',
         password: 'anno1602',
@@ -147,7 +111,6 @@ app.get('/api/adduser', function (req, res) {
         _id: false,
         collection: 'users'
     });
-
     Uland.save(function (err) {
         if (err) throw err;
 
@@ -155,8 +118,7 @@ app.get('/api/adduser', function (req, res) {
         res.json({ success: true })
     });
 });
-
-app.use('/api/tokenCheck', apiRoutes);
+//Token Verify
 app.post('/api/tokenCheck', function (req, res) {
     res.header({
         'Content-Type': 'application/json',
@@ -169,18 +131,6 @@ app.post('/api/tokenCheck', function (req, res) {
       message: "Token verified"
     });
 });
-
-app.post('/api/token', function (req, res) {
-    User.findOne({token: req.body.token}, function (err, user) {
-        if (err) throw err;
-        else if (!user) res.json({message: "No user found"})
-        else {
-            res.send(user);
-            console.log("User: ", user);
-        }
-    });
-})
-
 // development error handler
 // will print stacktrace
 if (app.get('env') === 'development') {
