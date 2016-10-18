@@ -1,26 +1,28 @@
 var express     = require('express');
+var session     = require('express-session');
 var app = express();
 
-var session     = require('express-session');
-<<<<<<< HEAD
+
 var cookie      = require('cookie-parser');
-=======
->>>>>>> f885ef077350118f5356dae7449b236fe5ccd7e6
 var cors        = require('cors');
 var morgan      = require('morgan');
 var path        = require('path');
 var bodyParser  = require('body-parser');
 var config      = require('./config/config')
 var jwt         = require('jsonwebtoken');
+var mongoose    = require('mongoose');
 
-<<<<<<< HEAD
+var Test        = require('./model/test');
+var User        = require('./model/user.schema');
+
 var sess = {
-  secret: config.secret,
-  cookie: {}
+    secret: config.secret,
+    cookie: {
+        maxAge: 60000,
+        httpOnly: false
+    }
 }
-
-=======
->>>>>>> f885ef077350118f5356dae7449b236fe5ccd7e6
+app.use(session(sess))
 // configure app
 app.use(morgan('dev'));
 
@@ -28,36 +30,26 @@ app.use(bodyParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
+app.use(cookie())
+
 app.use(cors());
 
-app.use(session({
-    secret: config.secret,
-    resave: true,
-    saveUninitialized: true
-}));
+app.use(function(req, res, next) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE');
+    next();
+});
 
-// Authentication and Authorization Middleware
-var auth = function(req, res, next) {
-  if (req.session && req.session.user === "uland" && req.session.admin)
-    return next();
-  else
-    return res.sendStatus(401);
-};
-
-var mongoose    = require('mongoose');
-// var bcrypt      = require(bcrypt);
-// const SALT_WORK_FACTOR = 10;
-
-var Test        = require('./model/test');
-var User        = require('./model/user.schema');
-
-mongoose.connect('mongodb://localhost:27017/lounge');
 app.set('secret', config.secret);
 
-//app.set('trust proxy', 1) // trust first proxy
+if (app.get('env') === 'production') {
+    app.set('trust proxy', 1) // trust first proxy
+    sess.cookie.secure = true // serve secure cookies
+}
+
+
 
 var apiRoutes = express.Router();
-
 apiRoutes.use(function (req, res, next) {
   var token = req.body.token || req.query.token || req.headers['x-access-token'];
   console.log(token);
@@ -83,44 +75,8 @@ apiRoutes.use(function (req, res, next) {
   }
 });
 
-app.use(function(req, res, next) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE');
-    next();
-});
+mongoose.connect('mongodb://localhost:27017/lounge');
 
-//app.use(session({ secret: config.secret, cookie: { maxAge: 60000 }}));
-
-// catch 404 and forward to error handler
-// app.use(function(req, res, next) {
-//   var err = new Error('Not Found');
-//   err.status = 404;
-//   next(err);
-// });
-
-// error handlers
-
-// development error handler
-// will print stacktrace
-if (app.get('env') === 'development') {
-  app.use(function(err, req, res, next) {
-    res.status(err.status || 500);
-    res.json({
-      message: err.message,
-      error: err
-    });
-  });
-}
-
-// production error handler
-// no stacktraces leaked to user
-app.use(function(err, req, res, next) {
-  res.status(err.status || 500);
-  res.render('error', {
-    message: err.message,
-    error: {}
-  });
-});
 
 app.get('/', function(req, res) {
     res.json({ message: 'hooray! welcome to our api!' });
@@ -142,30 +98,11 @@ app.get('/api/test', function(req, res) {
         });
 });
 
-<<<<<<< HEAD
-// Get content endpoint
-app.get('/connect', auth, function (req, res) {
-    res.json("You can only see this after you've logged in.");
-});
-
-app.post('/login', function (req, res) {
-<<<<<<< Updated upstream
-    console.log("Recived login request!");
-    console.log("Request: ", req.body, req.body.username);
-    res.header({
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-        'Accept': 'q=0.8;application/json;q=0.9'
-    })
-    res.end();
-});
-
-app.post('/authenticate', function(req, res) {
-
-=======
 app.post('/api/authenticate', function(req, res) {
->>>>>>> f885ef077350118f5356dae7449b236fe5ccd7e6
+
+    if(req.session.lastPage) {
+     res.json({LastPage: req.session.lastPage});
+   }
   // find the user
   console.log(req.body);
   User.findOne({
@@ -184,6 +121,11 @@ app.post('/api/authenticate', function(req, res) {
         var token = jwt.sign(user, app.get('secret'), {
           expiresIn: 60*2 // expires in 24 hours
         });
+        // save token to userModel
+        // user.token = token;
+        // user.save();
+
+        console.log(user.token);
         // return the information including token as JSON
         res.json({
           success: true,
@@ -195,27 +137,12 @@ app.post('/api/authenticate', function(req, res) {
   });
 });
 
-app.get('/users', function(req, res) {
-    User.find(function(err, users) {
-        if (err) {
-            res.send(err);
-        } else {
-            res.header({
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-            });
-            res.json(users);
-            console.log(users);
-        }
-    });
-});
-
 app.get('/api/adduser', function (req, res) {
 
     var Uland = new User({
         username: 'uland',
-        password: 'anno1602'
+        password: 'anno1602',
+        token: ""
     }, {
         _id: false,
         collection: 'users'
@@ -229,15 +156,30 @@ app.get('/api/adduser', function (req, res) {
     });
 });
 
-<<<<<<< HEAD
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  var err = new Error('Not Found');
-  err.status = 404;
-  next(err);
+app.use('/api/tokenCheck', apiRoutes);
+app.post('/api/tokenCheck', function (req, res) {
+    res.header({
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
+        'Accept': 'q=0.8;application/json;q=0.9'
+    })
+    res.send({
+      success: true,
+      message: "Token verified"
+    });
 });
 
-// error handlers
+app.post('/api/token', function (req, res) {
+    User.findOne({token: req.body.token}, function (err, user) {
+        if (err) throw err;
+        else if (!user) res.json({message: "No user found"})
+        else {
+            res.send(user);
+            console.log("User: ", user);
+        }
+    });
+})
 
 // development error handler
 // will print stacktrace
@@ -255,23 +197,10 @@ if (app.get('env') === 'development') {
 // no stacktraces leaked to user
 app.use(function(err, req, res, next) {
   res.status(err.status || 500);
-  app.set('trust proxy', 1); // trust first proxy
-  sess.cookie.secure = true; // serve secure cookies
   res.render('error', {
     message: err.message,
     error: {}
   });
 });
 
-
-=======
-app.use('/api/tokenCheck', apiRoutes);
-app.post('/api/tokenCheck', function (req, res) {
-    res.send({
-      success: true,
-      message: "Token verified"
-    });
-});
-
->>>>>>> f885ef077350118f5356dae7449b236fe5ccd7e6
 module.exports = app;
