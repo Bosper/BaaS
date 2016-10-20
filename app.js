@@ -45,6 +45,28 @@ app.use(function(req, res, next) {
     next();
 });
 
+// development error handler
+// will print stacktrace
+if (app.get('env') === 'development') {
+  app.use(function(err, req, res, next) {
+    res.status(err.status || 500);
+    res.render('error', {
+      message: err.message,
+      error: err
+    });
+  });
+}
+
+// production error handler
+// no stacktraces leaked to user
+app.use(function(err, req, res, next) {
+  res.status(err.status || 500);
+  res.render('error', {
+    message: err.message,
+    error: {}
+  });
+});
+
 //TOKEN  VERIFY for URL
 apiRoutes.use(function (req, res, next) {
   var token = req.body.token || req.query.token || req.headers['x-access-token'];
@@ -69,7 +91,9 @@ apiRoutes.use(function (req, res, next) {
     });
   }
 });
-//AUTH USER
+
+// AUTH ROUTES
+// find user
 app.post('/api/authenticate', function(req, res) {
   console.log(req.body);
   sess = req.session;
@@ -101,7 +125,7 @@ app.post('/api/authenticate', function(req, res) {
     }
   });
 });
-//Add User
+// add User
 app.get('/api/adduser', function (req, res) {
     var Uland = new User({
         username: 'uland',
@@ -118,7 +142,7 @@ app.get('/api/adduser', function (req, res) {
         res.json({ success: true })
     });
 });
-//Token Verify
+// token Verify
 app.post('/api/tokenCheck', function (req, res) {
     res.header({
         'Content-Type': 'application/json',
@@ -131,26 +155,30 @@ app.post('/api/tokenCheck', function (req, res) {
       message: "Token verified"
     });
 });
-// development error handler
-// will print stacktrace
-if (app.get('env') === 'development') {
-  app.use(function(err, req, res, next) {
-    res.status(err.status || 500);
-    res.render('error', {
-      message: err.message,
-      error: err
-    });
-  });
-}
 
-// production error handler
-// no stacktraces leaked to user
-app.use(function(err, req, res, next) {
-  res.status(err.status || 500);
-  res.render('error', {
-    message: err.message,
-    error: {}
-  });
+// API ROUTES
+app.get('/api/navigation', function (req, res) {
+    res.json([
+            { id: 1, title: "portrait", url: "/portrait", active: false, display: true, category: 1 },
+            { id: 2, title: "editorial", url: "/editorial", active: false, display: true, category: 2 },
+            { id: 99, title: "vision", url: "/editorial", active: false, display: true, category: 3 }
+        ]);
+});
+
+app.get('/api/albums', function (req, res) {
+    res.json({status: "OK", target: "albums", method: "GET"});
+});
+
+app.get('/api/photos', function (req, res) {
+    res.json({status: "OK", target: "photos", method: "GET"});
+});
+
+app.post('/api/photos', function (req, res) {
+    res.json({status: "OK", target: "photos", method: "POST"});
+});
+
+app.post('/api/albums', function (req, res) {
+    res.json({status: "OK", target: "albums", method: "POST"});
 });
 
 module.exports = app;
