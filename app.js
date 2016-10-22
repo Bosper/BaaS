@@ -12,6 +12,8 @@ var mongoose    = require('mongoose');
 
 var Test        = require('./model/test');
 var User        = require('./model/user.schema');
+var Album       = require('./model/album.schema');
+var Photo       = require('./model/photo.schema');
 var sess = {
     secret: config.secret,
     cookie: {
@@ -166,11 +168,19 @@ app.get('/api/navigation', function (req, res) {
 });
 
 app.get('/api/albums', function (req, res) {
-    res.json({status: "OK", target: "albums", method: "GET"});
+    Album.find({}, function (err, docs) {
+        if(err) throw err;
+        res.json(docs);
+    });
+    //res.json({status: "OK", target: "albums", method: "GET"});
 });
 
 app.get('/api/photos', function (req, res) {
-    res.json({status: "OK", target: "photos", method: "GET"});
+    Photo.find({}, function (err, docs) {
+        if(err) throw err;
+        res.json(docs);
+    });
+    //res.json({status: "OK", target: "photos", method: "GET"});
 });
 
 app.post('/api/photos', function (req, res) {

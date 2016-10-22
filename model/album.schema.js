@@ -4,9 +4,12 @@ var Schema = mongoose.Schema;
 var AlbumSchema = new Schema({
     id: Number,
     title: String,
-    photoId: Number[],
+    photoId: [Number],
+    start: Boolean,
+    category: Number,
     desc: String,
     order: Boolean,
+    active: Boolean,
     cover: Number
 }, {
     collection: 'albums'
