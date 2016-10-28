@@ -8,7 +8,7 @@ var AlbumSchema = new Schema({
     start: Boolean,
     category: Number,
     desc: String,
-    order: Boolean,
+    order: Number,
     active: Boolean,
     cover: Number
 }, {

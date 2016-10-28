@@ -30,6 +30,7 @@ mongoose.connection.on('open', function () {
 });
 
 var apiRoutes = express.Router();
+var newID = express.Router();
 
 // configure app
 app.set('secret', config.secret);
@@ -41,6 +42,7 @@ app.use(bodyParser.json());
 app.use(cookie())
 app.use(cors());
 app.use('/api/tokenCheck', apiRoutes);
+app.use('/api/createAlbum', newID);
 app.use(function(req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE');
@@ -92,6 +94,19 @@ apiRoutes.use(function (req, res, next) {
         token: "empty"
     });
   }
+});
+
+// ID MIDDLEWARE
+newID.use(function (req, res, next) {
+    var _newAlbumID;
+    Album.findOne().sort('-id').exec(function (err, album, newID) {
+        if (err) throw err;
+        var test = ++album.id;
+        _newAlbumID = test;
+        console.log("IN: ", test, _newAlbumID);
+        req.body.id = _newAlbumID;
+        next();
+    });
 });
 
 // AUTH ROUTES
@@ -187,8 +202,22 @@ app.post('/api/photos', function (req, res) {
     res.json({status: "OK", target: "photos", method: "POST"});
 });
 
-app.post('/api/albums', function (req, res) {
-    res.json({status: "OK", target: "albums", method: "POST"});
+app.post('/api/createAlbum', function (req, res) {
+    var newAlbum = new Album(req.body);
+    console.log("NEW ID: ", req.body);
+    newAlbum.save(function (err) {
+        if (err) throw err;
+        console.log(newAlbum, 'has been saved.');
+    });
+    res.json({success: "OK", message: "albums", error: "none"});
+    res.end();
+});
+
+app.post('/api/updateAlbum', function (req, res) {
+    var newAlbum = new Album(req.body);
+    console.log(newAlbum);
+    res.json({success: "OK", message: "UPDATE", error: "none"});
+    res.end();
 });
 
 module.exports = app;
