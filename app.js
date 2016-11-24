@@ -1,3 +1,6 @@
+const DIR       = './public/pictures/';
+const UPLOAD    = 'http://127.0.0.1:3005/static/pictures/';
+
 var express     = require('express');
 var app         = express();
 var session     = require('express-session');
@@ -6,10 +9,24 @@ var cors        = require('cors');
 var morgan      = require('morgan');
 var path        = require('path');
 var bodyParser  = require('body-parser');
-var config      = require('./config/config')
 var jwt         = require('jsonwebtoken');
 var mongoose    = require('mongoose');
+var multer      = require('multer');
+var mime        = require('mime');
+var storage     = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, DIR)
+    },
+    filename: function (req, file, cb) {
+        var path = file.fieldname + '-' + Date.now() + '.' + mime.extension(file.mimetype);
+        cb(null, path);
+        req.body.path = path;
+        console.log("FILENAME: ", file, "PATH: ", path);
+    }
+});
+var upload      = multer({storage: storage}).any();
 
+var config      = require('./config/config')
 var Test        = require('./model/test');
 var User        = require('./model/user.schema');
 var Album       = require('./model/album.schema');
@@ -21,6 +38,7 @@ var sess = {
         httpOnly: false
     }
 }
+
 //CONNECT to DB
 mongoose.connect(config.db);
 mongoose.connection.on('open', function () {
@@ -31,6 +49,11 @@ mongoose.connection.on('open', function () {
 
 var apiRoutes = express.Router();
 var newID = express.Router();
+var newPhotoID = express.Router();
+var auth = express.Router();
+var updateAlbum = express.Router();
+var createAlbum = express.Router();
+
 
 // configure app
 app.set('secret', config.secret);
@@ -40,12 +63,18 @@ app.use(bodyParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookie())
-app.use(cors());
 app.use('/api/tokenCheck', apiRoutes);
+app.use('/api/uploadPhotos', newPhotoID);
 app.use('/api/createAlbum', newID);
+app.use('/api/authenticate', auth);
+app.use('/api/updateAlbum', updateAlbum);
+app.use('/api/createAlbum', updateAlbum);
+app.use('/static', express.static('public'));
 app.use(function(req, res, next) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:8080');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+    res.setHeader('Access-Control-Allow-Credentials', true);
     next();
 });
 
@@ -72,7 +101,7 @@ app.use(function(err, req, res, next) {
 });
 
 //TOKEN  VERIFY for URL
-apiRoutes.use(function (req, res, next) {
+apiRoutes.use(cors(),function (req, res, next) {
   var token = req.body.token || req.query.token || req.headers['x-access-token'];
   console.log(token);
   if (token) {
@@ -96,6 +125,18 @@ apiRoutes.use(function (req, res, next) {
   }
 });
 
+auth.use(cors(), function (req, res, next) {
+    next();
+});
+
+updateAlbum.use(cors(), function (req, res, next) {
+    next();
+});
+
+createAlbum.use(cors(), function (req, res, next) {
+    next();
+});
+
 // ID MIDDLEWARE
 newID.use(function (req, res, next) {
     var _newAlbumID;
@@ -107,6 +148,18 @@ newID.use(function (req, res, next) {
         req.body.id = _newAlbumID;
         next();
     });
+});
+
+newPhotoID.use(function (req, res, next) {
+    var _newPhotoID;
+    Photo.findOne().sort('-id').exec(function (err, photo, newID) {
+        if (err) throw err;
+        var test = photo.id;
+        _newPhotoID = ++test;
+        console.log("IN: ", photo.id, _newPhotoID);
+        req.body.id = _newPhotoID;
+    });
+    next();
 });
 
 // AUTH ROUTES
@@ -161,12 +214,12 @@ app.get('/api/adduser', function (req, res) {
 });
 // token Verify
 app.post('/api/tokenCheck', function (req, res) {
-    res.header({
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-        'Accept': 'q=0.8;application/json;q=0.9'
-    })
+    // res.header({
+    //     'Content-Type': 'application/json',
+    //     'Access-Control-Allow-Origin': '*',
+    //     'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
+    //     'Accept': 'q=0.8;application/json;q=0.9'
+    // });
     res.send({
       success: true,
       message: "Token verified"
@@ -214,10 +267,49 @@ app.post('/api/createAlbum', function (req, res) {
 });
 
 app.post('/api/updateAlbum', function (req, res) {
-    var newAlbum = new Album(req.body);
-    console.log(newAlbum);
-    res.json({success: "OK", message: "UPDATE", error: "none"});
-    res.end();
+    //var newAlbum = new Album(req.body);
+    //console.log(newAlbum);
+    Album.findOne({id: req.body.id}, function (err, album) {
+        if (err) throw err;
+        if (!album) {
+            res.json({success: "FALSE", message: "ALBUM NOT FOUND", error: "TRUE"})
+        } else if (album) {
+            album.title = req.body.title;
+            album.photoId = req.body.photoId;
+            album.start = req.body.start;
+            album.category = req.body.category;
+            album.desc = req.body.desc;
+            album.order = req.body.order;
+            album.active = req.body.active;
+            album.cover = req.body.cover;
+            album.save(function (err, updatedAlbum) {
+                if (err) return err;
+                console.log("Updated Album: ", updatedAlbum);
+                res.json({success: "OK", message: "UPDATE", error: "none"})
+            });
+        }
+    });
+});
+
+app.post('/api/uploadPhotos', function (req, res) {
+    upload(req, res, function (err) {
+        if (err) {
+            return res.end(err.toString());
+        } else {
+            newPhoto = new Photo({
+                id: req.body.id,
+                order: 1,
+                active: true,
+                url: UPLOAD + req.body.path
+            });
+
+            newPhoto.save(function (err) {
+                if (err) throw err;
+                res.json({success: true, message: 'File has been uploaded!', err: 'none'});
+            });
+            //res.end();
+        };
+  });
 });
 
 module.exports = app;
