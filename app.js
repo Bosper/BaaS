@@ -26,11 +26,15 @@ var storage     = multer.diskStorage({
 });
 var upload      = multer({storage: storage}).any();
 
-var config      = require('./config/config')
+var appRoutes   = require('./routes/app');
+
+var config      = require('./config/config');
 var Test        = require('./model/test');
 var User        = require('./model/user.schema');
 var Album       = require('./model/album.schema');
 var Photo       = require('./model/photo.schema');
+var Page        = require('./model/page.schema');
+var Panel        = require('./model/panelMenu.schema');
 var sess = {
     secret: config.secret,
     cookie: {
@@ -53,24 +57,32 @@ var newPhotoID = express.Router();
 var auth = express.Router();
 var updateAlbum = express.Router();
 var createAlbum = express.Router();
-
+var updatePhoto = express.Router();
 
 // configure app
 app.set('secret', config.secret);
+// view engine setup
+app.set('views', path.join(__dirname, 'public/dist'));
+app.set('view engine', 'hbs');
+// session setup
 app.use(session(sess))
 app.use(morgan('dev'));
 app.use(bodyParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(cookie())
+app.use(cookie());
+app.use('/', appRoutes);
 app.use('/api/tokenCheck', apiRoutes);
 app.use('/api/uploadPhotos', newPhotoID);
 app.use('/api/createAlbum', newID);
 app.use('/api/authenticate', auth);
 app.use('/api/updateAlbum', updateAlbum);
 app.use('/api/createAlbum', updateAlbum);
+app.use('/api/updatePhoto', updatePhoto);
 app.use('/static', express.static('public'));
+app.use(express.static('public/dist'));
 app.use(function(req, res, next) {
+    //res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3005');
     res.setHeader('Access-Control-Allow-Origin', 'http://localhost:8080');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
@@ -137,16 +149,27 @@ createAlbum.use(cors(), function (req, res, next) {
     next();
 });
 
+updatePhoto.use(cors(), function (req, res, next) {
+    next();
+});
+
 // ID MIDDLEWARE
 newID.use(function (req, res, next) {
     var _newAlbumID;
-    Album.findOne().sort('-id').exec(function (err, album, newID) {
-        if (err) throw err;
-        var test = ++album.id;
-        _newAlbumID = test;
-        console.log("IN: ", test, _newAlbumID);
-        req.body.id = _newAlbumID;
-        next();
+    Album.findOne().sort('-id').exec(function (err, album) {
+        if (err) return handleError(err);
+        else if (!album) {
+            _newAlbumID = 1;
+            req.body.id = _newAlbumID;
+            console.log("NO ALBUM");
+            next();
+        } else {
+            var test = ++album.id;
+            _newAlbumID = test;
+            console.log("IN: ", test, _newAlbumID);
+            req.body.id = _newAlbumID;
+            next();
+        }
     });
 });
 
@@ -231,7 +254,7 @@ app.get('/api/navigation', function (req, res) {
     res.json([
             { id: 1, title: "portrait", url: "/portrait", active: false, display: true, category: 1 },
             { id: 2, title: "editorial", url: "/editorial", active: false, display: true, category: 2 },
-            { id: 99, title: "vision", url: "/editorial", active: false, display: true, category: 3 }
+            { id: 99, title: "vision", url: "/vision", active: false, display: true, category: 3 }
         ]);
 });
 
@@ -243,8 +266,26 @@ app.get('/api/albums', function (req, res) {
     //res.json({status: "OK", target: "albums", method: "GET"});
 });
 
+
+//SITE PAGES
+app.get('/api/bio', function (req, res) {
+    Page.find({id: 1}, function (err, page) {
+        if (err) throw err;
+        console.log(page);
+        res.json(page);
+    })
+});
+
 app.get('/api/photos', function (req, res) {
     Photo.find({}, function (err, docs) {
+        if(err) throw err;
+        res.json(docs);
+    });
+    //res.json({status: "OK", target: "photos", method: "GET"});
+});
+
+app.get('/api/panelnav', function (req, res) {
+    Panel.find({}, function (err, docs) {
         if(err) throw err;
         res.json(docs);
     });
@@ -285,11 +326,30 @@ app.post('/api/updateAlbum', function (req, res) {
             album.save(function (err, updatedAlbum) {
                 if (err) return err;
                 console.log("Updated Album: ", updatedAlbum);
-                res.json({success: "OK", message: "UPDATE", error: "none"})
+                res.json({success: "OK", message: "Album has been udated", error: "none"})
             });
         }
     });
 });
+
+app.post('/api/updatePhoto', function (req, res) {
+    var id = req.body.id;
+
+    Photo.findOne({id: id}, function (err, photo) {
+        if (err) throw err;
+        if(!photo) {
+            res.json({success: "FALSE", message: "Photo has NOT been updated", error: "TRUE"})
+        } else if (photo) {
+            photo.active = req.body.display;
+            photo.order = req.body.order;
+
+            photo.save(function (err, updatedPhoto) {
+                if (err) throw err;
+                res.json({success: "OK", message: "Photo has been updated", error: "none"})
+            })
+        }
+    })
+})
 
 app.post('/api/uploadPhotos', function (req, res) {
     upload(req, res, function (err) {
@@ -310,6 +370,15 @@ app.post('/api/uploadPhotos', function (req, res) {
             //res.end();
         };
   });
+});
+
+//DASHBOARD PAGES
+app.get('/api/pages', function (req, res) {
+    Page.find({}, function (err, pages) {
+        if (err) throw err;
+        console.log(pages);
+        res.json(pages)
+    });
 });
 
 module.exports = app;
